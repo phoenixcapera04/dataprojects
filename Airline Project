@@ -1,0 +1,30 @@
+I've created a comprehensive airline database schema with sample data. Here's what's included:
+
+Core Tables:
+
+
+Airports: Stores airport information including coordinates
+Aircraft: Manages fleet information
+Flights: Tracks all flight details
+Fare Classes: Different ticket classes with their benefits
+Seats: Aircraft seating configuration
+Passengers: Customer information
+Bookings: Reservation records
+
+
+Key Features:
+
+
+Data integrity with foreign key constraints
+Check constraints to prevent invalid data
+Useful views for common queries
+Sample data to get started
+
+
+Common Use Cases:
+
+
+Flight scheduling and tracking
+Seat availability checking
+Booking management
+Passenger information management
