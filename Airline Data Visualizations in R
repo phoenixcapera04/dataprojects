@@ -1,0 +1,80 @@
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+library(tidyr)
+
+# Sample data generation to match our SQL schema
+airports <- data.frame(
+  airport_id = c("JFK", "LHR", "SIN", "LAX", "DXB"),
+  airport_name = c("JF Kennedy", "Heathrow", "Changi", "Los Angeles", "Dubai"),
+  city = c("New York", "London", "Singapore", "Los Angeles", "Dubai"),
+  total_flights = c(450, 380, 290, 320, 400)
+)
+
+flights <- data.frame(
+  departure_airport = sample(airports$airport_id, 1000, replace = TRUE),
+  arrival_airport = sample(airports$airport_id, 1000, replace = TRUE),
+  scheduled_departure = seq(as.POSIXct("2024-01-01"), by = "hour", length.out = 1000),
+  status = sample(c("On Time", "Delayed", "Cancelled"), 1000, replace = TRUE, prob = c(0.7, 0.25, 0.05)),
+  passengers = sample(100:300, 1000, replace = TRUE),
+  revenue = rnorm(1000, mean = 50000, sd = 10000)
+)
+
+# 1. Flight Volume by Airport
+ggplot(airports, aes(x = reorder(city, total_flights), y = total_flights)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Total Flights by City",
+       x = "City",
+       y = "Number of Flights")
+
+# 2. Flight Status Distribution
+flights %>%
+  count(status) %>%
+  ggplot(aes(x = "", y = n, fill = status)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  theme_minimal() +
+  labs(title = "Flight Status Distribution") +
+  scale_fill_manual(values = c("Cancelled" = "red", "Delayed" = "orange", "On Time" = "green"))
+
+# 3. Average Daily Passengers Over Time
+flights %>%
+  mutate(date = as.Date(scheduled_departure)) %>%
+  group_by(date) %>%
+  summarize(avg_passengers = mean(passengers)) %>%
+  ggplot(aes(x = date, y = avg_passengers)) +
+  geom_line(color = "blue") +
+  geom_smooth(method = "loess", se = FALSE, color = "red") +
+  theme_minimal() +
+  labs(title = "Average Daily Passengers Over Time",
+       x = "Date",
+       y = "Average Passengers")
+
+# 4. Route Network Heatmap
+route_counts <- flights %>%
+  count(departure_airport, arrival_airport) %>%
+  filter(departure_airport != arrival_airport)
+
+ggplot(route_counts, aes(x = departure_airport, y = arrival_airport, fill = n)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Route Network Heatmap",
+       x = "Departure Airport",
+       y = "Arrival Airport",
+       fill = "Number of Flights")
+
+# 5. Revenue Analysis
+flights %>%
+  mutate(hour = hour(scheduled_departure)) %>%
+  group_by(hour) %>%
+  summarize(avg_revenue = mean(revenue)) %>%
+  ggplot(aes(x = hour, y = avg_revenue)) +
+  geom_bar(stat = "identity", fill = "darkgreen") +
+  theme_minimal() +
+  labs(title = "Average Revenue by Hour of Day",
+       x = "Hour",
+       y = "Average Revenue")
