@@ -1,0 +1,112 @@
+-- Create tables for core airline database entities
+CREATE TABLE airports (
+    airport_id CHAR(3) PRIMARY KEY,
+    airport_name VARCHAR(100) NOT NULL,
+    city VARCHAR(50) NOT NULL,
+    country VARCHAR(50) NOT NULL,
+    latitude DECIMAL(10,6),
+    longitude DECIMAL(10,6)
+);
+
+CREATE TABLE aircraft (
+    aircraft_id VARCHAR(10) PRIMARY KEY,
+    model VARCHAR(50) NOT NULL,
+    total_seats INT NOT NULL,
+    manufacturer VARCHAR(50) NOT NULL,
+    year_manufactured INT
+);
+
+CREATE TABLE flights (
+    flight_id VARCHAR(10) PRIMARY KEY,
+    flight_number VARCHAR(10) NOT NULL,
+    departure_airport CHAR(3) REFERENCES airports(airport_id),
+    arrival_airport CHAR(3) REFERENCES airports(airport_id),
+    aircraft_id VARCHAR(10) REFERENCES aircraft(aircraft_id),
+    scheduled_departure TIMESTAMP NOT NULL,
+    scheduled_arrival TIMESTAMP NOT NULL,
+    status VARCHAR(20) DEFAULT 'Scheduled',
+    CONSTRAINT valid_airports CHECK (departure_airport != arrival_airport)
+);
+
+CREATE TABLE fare_classes (
+    class_id SERIAL PRIMARY KEY,
+    class_name VARCHAR(20) NOT NULL,
+    class_description TEXT,
+    baggage_allowance INT,
+    is_refundable BOOLEAN
+);
+
+CREATE TABLE seats (
+    seat_id SERIAL PRIMARY KEY,
+    aircraft_id VARCHAR(10) REFERENCES aircraft(aircraft_id),
+    seat_number VARCHAR(4) NOT NULL,
+    class_id INT REFERENCES fare_classes(class_id),
+    UNIQUE(aircraft_id, seat_number)
+);
+
+CREATE TABLE passengers (
+    passenger_id SERIAL PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    email VARCHAR(100),
+    phone VARCHAR(20),
+    frequent_flyer_number VARCHAR(20) UNIQUE
+);
+
+CREATE TABLE bookings (
+    booking_id VARCHAR(10) PRIMARY KEY,
+    passenger_id INT REFERENCES passengers(passenger_id),
+    flight_id VARCHAR(10) REFERENCES flights(flight_id),
+    seat_id INT REFERENCES seats(seat_id),
+    booking_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fare_amount DECIMAL(10,2) NOT NULL,
+    booking_status VARCHAR(20) DEFAULT 'Confirmed'
+);
+
+-- Insert sample data
+INSERT INTO airports (airport_id, airport_name, city, country, latitude, longitude) VALUES
+('JFK', 'John F Kennedy International', 'New York', 'USA', 40.6413, -73.7781),
+('LHR', 'London Heathrow', 'London', 'UK', 51.4700, -0.4543),
+('SIN', 'Singapore Changi', 'Singapore', 'Singapore', 1.3644, 103.9915);
+
+INSERT INTO aircraft (aircraft_id, model, total_seats, manufacturer, year_manufactured) VALUES
+('B738-001', 'Boeing 737-800', 189, 'Boeing', 2015),
+('A320-001', 'Airbus A320', 180, 'Airbus', 2018);
+
+INSERT INTO fare_classes (class_name, class_description, baggage_allowance, is_refundable) VALUES
+('Economy', 'Standard economy class', 23, false),
+('Business', 'Business class with premium services', 32, true),
+('First', 'First class with luxury services', 40, true);
+
+-- Sample query to find all flights between two cities
+CREATE OR REPLACE VIEW flight_schedule AS
+SELECT 
+    f.flight_id,
+    f.flight_number,
+    dep.city as departure_city,
+    arr.city as arrival_city,
+    f.scheduled_departure,
+    f.scheduled_arrival,
+    a.model as aircraft_model,
+    f.status
+FROM flights f
+JOIN airports dep ON f.departure_airport = dep.airport_id
+JOIN airports arr ON f.arrival_airport = arr.airport_id
+JOIN aircraft a ON f.aircraft_id = a.aircraft_id;
+
+-- Query to check available seats on a flight
+CREATE OR REPLACE VIEW available_seats AS
+SELECT 
+    f.flight_id,
+    f.flight_number,
+    s.seat_number,
+    fc.class_name,
+    CASE 
+        WHEN b.booking_id IS NULL THEN 'Available'
+        ELSE 'Occupied'
+    END as seat_status
+FROM flights f
+JOIN aircraft a ON f.aircraft_id = a.aircraft_id
+JOIN seats s ON a.aircraft_id = s.aircraft_id
+JOIN fare_classes fc ON s.class_id = fc.class_id
+LEFT JOIN bookings b ON s.seat_id = b.seat_id AND f.flight_id = b.flight_id;
